@@ -54,3 +54,11 @@ To help GitHub Copilot understand the context of the service you want to edit, f
 
 - "Edit the `backend` service to add a new `/status` endpoint that returns the service status."
 - "Update the `oauth2` service to include a new OAuth2 client configuration."
+
+5. **IMPORTANT: To run a specific service in this monorepo, use the following approach:**
+
+```bash
+# From the services directory
+pnpm start:dev oauth2    # Start ONLY the oauth2 service
+pnpm start:dev backend   # Start ONLY the backend service
+```
