@@ -1,24 +1,34 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Oauth2Module } from './oauth2.module';
-import * as cookieParser from 'cookie-parser';
-import helmet from 'helmet';
+import fastifyCookie from '@fastify/cookie';
+import fastifyHelmet from '@fastify/helmet';
+import fastifyCsrf from '@fastify/csrf-protection';
 
 async function bootstrap() {
-  const app = await NestFactory.create(Oauth2Module);
+  const app = await NestFactory.create<NestFastifyApplication>(
+    Oauth2Module,
+    new FastifyAdapter({
+      logger: true,
+    })
+  );
   
   // Enable CORS
-  app.enableCors({
+  await app.enableCors({
     origin: true, // In production, you should specify exact origins
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
   });
   
   // Security middleware
-  app.use(helmet());
+  await app.register(fastifyHelmet);
   
   // Cookie parser
-  app.use(cookieParser());
+  await app.register(fastifyCookie);
+  
+  // CSRF protection
+  await app.register(fastifyCsrf);
   
   // Global validation pipe
   app.useGlobalPipes(new ValidationPipe({
@@ -30,7 +40,7 @@ async function bootstrap() {
   // Global prefix for all routes
   app.setGlobalPrefix('api/oauth2');
   
-  await app.listen(process.env.PORT ?? 3000);
-  console.log(`OAuth2 service is running on port ${process.env.PORT ?? 3000}`);
+  await app.listen(process.env.PORT ?? 3000, '0.0.0.0');
+  console.log(`OAuth2 service is running on port ${process.env.PORT ?? 3000} with Fastify`);
 }
 bootstrap();

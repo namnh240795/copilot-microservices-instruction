@@ -15,7 +15,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
-import { Response, Request } from 'express';
+import { FastifyRequest, FastifyReply } from 'fastify';
 import { Oauth2Service } from './oauth2.service';
 
 import { CreateClientDto, ClientResponseDto, UpdateClientDto } from './dto/client.dto';
@@ -188,7 +188,12 @@ export class Oauth2Controller {
 
   @Delete('users/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async deleteUser(@Param('id') id: string): Promise<void> {
+  async deleteUser(
+    @Param('id') id: string,
+    @Req() req: FastifyRequest
+  ): Promise<void> {
+    // With Fastify, we need to handle DELETE requests differently than with Express
+    // We don't require a body for DELETE requests
     await this.oauth2Service.deleteUser(id);
   }
 
@@ -196,7 +201,7 @@ export class Oauth2Controller {
   @Get('authorize')
   async authorize(
     @Query() query: AuthorizeDto,
-    @Res() res: Response,
+    @Res({ passthrough: false }) res: FastifyReply,
   ): Promise<void> {
     const { client_id, response_type, redirect_uri, scope, state } = query;
 
@@ -216,8 +221,7 @@ export class Oauth2Controller {
       const user = await this.oauth2Service.findUserByUsername('user1');
       if (!user) {
         // Redirect to error page or login page
-        res.redirect(`${redirect_uri}?error=login_required&state=${state || ''}`);
-        return;
+        return res.redirect(`${redirect_uri}?error=login_required&state=${state || ''}`);
       }
 
       // Process based on response_type
@@ -233,7 +237,7 @@ export class Oauth2Controller {
         );
 
         // Redirect back to client with code
-        res.redirect(`${redirect_uri}?code=${code}${state ? `&state=${state}` : ''}`);
+        return res.redirect(`${redirect_uri}?code=${code}${state ? `&state=${state}` : ''}`);
       } else if (response_type === 'token') {
         // Implicit Flow
         const scopes = scope ? scope.split(' ') : [];
@@ -241,18 +245,18 @@ export class Oauth2Controller {
         const token = await this.oauth2Service.generateAccessToken(client, user, validScopes);
 
         // Redirect back to client with token
-        res.redirect(
+        return res.redirect(
           `${redirect_uri}#access_token=${token.accessToken}&token_type=bearer&expires_in=3600${
             state ? `&state=${state}` : ''
           }`,
         );
       } else {
         // Unsupported response_type
-        res.redirect(`${redirect_uri}?error=unsupported_response_type&state=${state || ''}`);
+        return res.redirect(`${redirect_uri}?error=unsupported_response_type&state=${state || ''}`);
       }
     } catch (error) {
       // If there's any error, redirect with error
-      res.redirect(`${redirect_uri}?error=server_error&error_description=${error.message}&state=${state || ''}`);
+      return res.redirect(`${redirect_uri}?error=server_error&error_description=${error.message}&state=${state || ''}`);
     }
   }
 
@@ -405,8 +409,8 @@ export class Oauth2Controller {
   }
 
   @Get('userinfo')
-  async userInfo(@Req() req: Request): Promise<any> {
-    const authHeader = req.headers.authorization;
+  async userInfo(@Req() req: FastifyRequest): Promise<any> {
+    const authHeader = req.headers.authorization as string;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new UnauthorizedException('Access token is required');
     }

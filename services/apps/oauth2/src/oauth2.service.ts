@@ -1,14 +1,18 @@
 import { Injectable, BadRequestException, UnauthorizedException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { randomBytes, createHash } from 'crypto';
-import * as bcrypt from 'bcrypt';
+import { randomBytes, createHash, scrypt, timingSafeEqual } from 'crypto';
+import { promisify } from 'util';
 
+// Import entities
 import { Client } from './entities/client.entity';
 import { User } from './entities/user.entity';
 import { Token } from './entities/token.entity';
 import { AuthorizationCode } from './entities/authorization-code.entity';
 import { IOAuthService } from './interfaces/oauth.interfaces';
+
+// Promisify scrypt
+const scryptAsync = promisify(scrypt);
 
 @Injectable()
 export class Oauth2Service implements IOAuthService {
@@ -22,6 +26,20 @@ export class Oauth2Service implements IOAuthService {
     @InjectRepository(AuthorizationCode)
     private authCodesRepository: Repository<AuthorizationCode>,
   ) {}
+
+  // Password hashing functions using crypto instead of bcrypt
+  async hashPassword(password: string): Promise<string> {
+    const salt = randomBytes(16).toString('hex');
+    const buf = await scryptAsync(password, salt, 64) as Buffer;
+    return `${buf.toString('hex')}.${salt}`;
+  }
+
+  async comparePassword(storedPassword: string, suppliedPassword: string): Promise<boolean> {
+    const [hashedPassword, salt] = storedPassword.split('.');
+    const buf = await scryptAsync(suppliedPassword, salt, 64) as Buffer;
+    const keyBuffer = Buffer.from(hashedPassword, 'hex');
+    return keyBuffer.length === buf.length && timingSafeEqual(keyBuffer, buf);
+  }
 
   // Client methods
   async createClient(clientData: Partial<Client>): Promise<Client> {
@@ -96,8 +114,8 @@ export class Oauth2Service implements IOAuthService {
       throw new BadRequestException('Password is required');
     }
     
-    // Hash password
-    const hashedPassword = await bcrypt.hash(userData.password, 10);
+    // Hash password using our crypto implementation
+    const hashedPassword = await this.hashPassword(userData.password);
     
     const user = this.usersRepository.create({
       ...userData,
@@ -132,7 +150,8 @@ export class Oauth2Service implements IOAuthService {
       return null;
     }
     
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    // Use our comparePassword method instead of bcrypt
+    const isPasswordValid = await this.comparePassword(user.password, password);
     
     if (!isPasswordValid) {
       return null;
@@ -145,7 +164,8 @@ export class Oauth2Service implements IOAuthService {
     const user = await this.findUserById(id);
     
     if (userData.password) {
-      userData.password = await bcrypt.hash(userData.password, 10);
+      // Use our hashPassword method
+      userData.password = await this.hashPassword(userData.password);
     }
     
     this.usersRepository.merge(user, userData);

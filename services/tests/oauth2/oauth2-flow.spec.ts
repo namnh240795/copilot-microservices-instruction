@@ -306,11 +306,7 @@ test.describe('OAuth2 Service Test Suite', () => {
   test('Should clean up created resources', async ({ request }) => {
     // Clean up the user
     if (userId) {
-      const response = await request.delete(`${baseUrl}/users/${userId}`, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await request.delete(`${baseUrl}/users/${userId}`);
 
       console.log('Delete user response status:', response.status());
       
