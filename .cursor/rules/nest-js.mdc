@@ -1,0 +1,7 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+- follow nestjs best practices
+- when write a new module, controller or service, always remember to add a test specs

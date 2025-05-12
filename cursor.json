@@ -1,0 +1,36 @@
+{
+  "name": "copilot-microservices",
+  "rules": [
+    {
+      "pattern": "services/**/",
+      "scripts": {
+        "start:dev": "pnpm start:dev",
+        "start:prod": "pnpm start:prod",
+        "build": "pnpm build",
+        "install": "pnpm install"
+      }
+    },
+    {
+      "pattern": "services/backend/**",
+      "description": "Backend service directory",
+      "tags": ["backend", "api"]
+    },
+    {
+      "pattern": "services/oauth2/**",
+      "description": "OAuth2 service directory",
+      "tags": ["oauth2", "authentication"]
+    }
+  ],
+  "recommendations": {
+    "extensions": [
+      "dbaeumer.vscode-eslint",
+      "esbenp.prettier-vscode"
+    ]
+  },
+  "settings": {
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": true
+    }
+  }
+} 
